@@ -19,6 +19,7 @@ const FileSystemAPI = require('./FileSystemAPI');
 const SystemInfo = require('./SystemInfo');
 const Platform = require('./Platform');
 const Logger = require('./Logger');
+const Config = require('./Config');
 
 async function startServer(opts = {}) {
   const platform = opts.platform || new Platform();
@@ -31,6 +32,7 @@ async function startServer(opts = {}) {
     code: opts.code,
     logger,
     platform,
+    agentConfig: opts.agentConfig || {},
   });
   await server.start();
   return server;
@@ -78,4 +80,15 @@ module.exports = {
   SystemInfo,
   Platform,
   Logger,
+  Config,
+  // Tool APIs
+  ProcessAPI: require('./tools/ProcessAPI'),
+  NetworkAPI: require('./tools/NetworkAPI'),
+  GitAPI: require('./tools/GitAPI'),
+  SearchAPI: require('./tools/SearchAPI'),
+  EnvAPI: require('./tools/EnvAPI'),
+  ClipboardAPI: require('./tools/ClipboardAPI'),
+  CryptoAPI: require('./tools/CryptoAPI'),
+  TimeAPI: require('./tools/TimeAPI'),
+  AgentInteraction: require('./tools/AgentInteraction'),
 };

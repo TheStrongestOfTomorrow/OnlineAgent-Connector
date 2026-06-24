@@ -102,7 +102,47 @@ You can then point an AI agent at `ws://127.0.0.1:7777/` from the same phone (e.
 
 ## Usage
 
-### Start the server
+### The TUI (default)
+
+Just type `onlineagent` (no args). The first time, you get onboarding:
+
+```
+╔══════════════════════════════════════════════════════╗
+║   Welcome to OnlineAgent-Connector v2.0.0              ║
+║   Local hosting for AI agents · TUI edition            ║
+╚══════════════════════════════════════════════════════╝
+
+This onboarding runs only once. After this, just type `onlineagent` to launch the dashboard.
+
+TCP port to listen on:    [7777]
+Bind mode: [L]ocalhost only   [N]LAN (other devices on Wi-Fi can connect)
+Capabilities:
+   [x] Allow shell.exec (run commands)
+   [x] Allow fs.write (modify files)
+Pairing code length: [4] 4-digit  [6] 6-digit (default)  [8] 8-digit
+Working directory (the agent is sandboxed here): /home/you/projects/foo
+
+Tab to navigate · Enter on a field to edit · S to save & start · Q or Esc to quit
+```
+
+After saving, the dashboard launches. On every subsequent run, typing `onlineagent` skips onboarding and goes straight to the dashboard.
+
+The dashboard has 6 tabs (keys `1`-`6`):
+
+| Tab | What it shows |
+|---|---|
+| `1 Status` | Server state, pairing code, connection URLs, connected agents, agent progress bars, system snapshot |
+| `2 Chat` | **Live view of agent messages.** When an agent calls `agent.ask`, the prompt shows here; type your reply + Enter — it goes back to the agent as the JSON-RPC result. |
+| `3 Logs` | Raw server log stream |
+| `4 Tools` | All 53 methods exposed to agents, grouped by category |
+| `5 Settings` | Current config & quick-action keys (r = regenerate code, s = start/stop, l = toggle LAN, etc.) |
+| `6 Help` | Full usage reference |
+
+Global keys: `1-6` switch tabs · `r` regenerate pairing code · `s` start/stop server · `q` / `Ctrl-C` quit.
+
+### Start the server (no TUI)
+
+For headless / scripted use, you can skip the TUI:
 
 ```bash
 onlineagent start
@@ -128,6 +168,7 @@ Options:
 ### Other subcommands
 
 ```bash
+onlineagent tui       # explicitly launch the TUI (same as no args)
 onlineagent code      # re-display the current pairing code
 onlineagent status    # show running server info
 onlineagent stop      # stop a running server
@@ -175,6 +216,40 @@ python examples/python-agent.py ws://127.0.0.1:7777/ 481293
 
 ---
 
+## The AI talks back to you (the magic part)
+
+The headline feature of v2.0. Once an agent is connected, it doesn't have to silently do things — it can talk to you directly in your terminal:
+
+| Method | What it does | What you see |
+|---|---|---|
+| `agent.message` | Push a chat message | Text appears in the **Chat** tab |
+| `agent.ask` | Ask you a question | Prompt appears in the **Chat** tab; your typed reply goes back as the JSON-RPC result |
+| `agent.notify` | Desktop notification | Native toast (`notify-send`/`osascript`/`termux-notification`/PowerShell) + in-TUI banner |
+| `agent.progress` | Status update | Progress bar / status line in the **Status** tab |
+
+Example: an AI agent could do this:
+
+```js
+// 1. Tell the user what it's about to do
+ws.send(JSON.stringify({ jsonrpc: '2.0', id: '1', method: 'agent.message',
+  params: { text: 'I'm going to look at your package.json now.', level: 'info' } }));
+
+// 2. Update the progress bar
+ws.send(JSON.stringify({ jsonrpc: '2.0', id: '2', method: 'agent.progress',
+  params: { status: 'reading package.json', percent: 25 } }));
+
+const r = await readPackageJson();  // (using fs.read)
+
+// 3. Ask the user a question — they answer in the TUI, the answer comes back here
+ws.send(JSON.stringify({ jsonrpc: '2.0', id: '3', method: 'agent.ask',
+  params: { prompt: 'Should I bump the version to 2.1.0?', defaultResponse: 'yes', timeoutMs: 60000 } }));
+// (the JSON-RPC result contains { answered: true, response: 'yes' })
+```
+
+No website, no Slack, no switching apps — the entire AI ↔ human loop happens inside the terminal.
+
+---
+
 ## Protocol reference
 
 All requests follow JSON-RPC 2.0:
@@ -192,22 +267,116 @@ All requests follow JSON-RPC 2.0:
 
 ### Methods that require prior auth
 
+#### Agent interaction (the AI talks back to you)
+
 | Method | Params | Returns |
 |---|---|---|
 | `agent.whoami` | — | `{ agentId, serverId }` |
 | `agent.list` | — | `{ agents: [...], count }` |
+| `agent.message` | `{ text, level? }` | `{ delivered, timestamp }` — pushes a chat message to the TUI |
+| `agent.ask` | `{ prompt, defaultResponse?, timeoutMs? }` | `{ answered, response, timedOut? }` — blocks until user replies in the TUI |
+| `agent.notify` | `{ title?, body, urgency? }` | `{ shown, backend, error? }` — desktop notification |
+| `agent.progress` | `{ status?, percent? }` | `{ updated }` — updates the TUI status line |
+
+#### System
+
+| Method | Params | Returns |
+|---|---|---|
 | `sys.info` | — | full system snapshot (CPU, memory, network, etc.) |
 | `sys.diskUsage` | — | disk usage of the working directory |
+
+#### Shell
+
+| Method | Params | Returns |
+|---|---|---|
 | `shell.exec` | `{ command, cwd?, env?, timeoutMs?, stdin? }` | `{ ok, exitCode, stdout, stderr, durationMs, timedOut }` |
+
+#### Filesystem (sandboxed to `cwd`)
+
+| Method | Params | Returns |
+|---|---|---|
 | `fs.read` | `{ path, encoding? }` | `{ path, size, mtime, content }` |
 | `fs.write` | `{ path, content, mode? }` | `{ path, size, mtime }` |
-| `fs.list` | `{ path? }` | `{ path, entries: [{ name, path, type, size, mtime }] }` |
+| `fs.list` | `{ path? }` | `{ path, entries: [...] }` |
 | `fs.stat` | `{ path }` | `{ path, size, mtime, isFile, isDir, ... }` |
 | `fs.rm` | `{ path, recursive? }` | `{ path, removed }` |
 | `fs.mkdir` | `{ path, recursive? }` | `{ path, created }` |
 | `fs.rename` | `{ from, to }` | `{ from, to, renamed }` |
 | `fs.copy` | `{ from, to }` | `{ from, to, copied }` |
 | `fs.tree` | `{ path?, maxDepth? }` | `{ root, entries: [{ path, type }] }` |
+
+#### Processes
+
+| Method | Params | Returns |
+|---|---|---|
+| `proc.list` | `{ limit?, sortBy? }` | `{ processes: [...], count }` |
+| `proc.kill` | `{ pid, signal? }` | `{ pid, signal, killed }` |
+| `proc.tree` | `{ pid, maxDepth? }` | `{ root, children: [...] }` |
+| `proc.me` | — | connector's own process info |
+
+#### Network
+
+| Method | Params | Returns |
+|---|---|---|
+| `net.http` | `{ url, method?, headers?, body?, timeoutMs?, json? }` | `{ ok, status, headers, body, json?, durationMs }` |
+| `net.dns` | `{ hostname, recordType? }` | `{ hostname, recordType, records }` |
+| `net.ping` | `{ host, count? }` | `{ host, count, output, ok }` |
+| `net.ip` | — | `{ interfaces: [...] }` |
+
+#### Git (operates in `cwd`)
+
+| Method | Params | Returns |
+|---|---|---|
+| `git.status` | — | `{ branch, status }` |
+| `git.diff` | `{ staged?, pathspec? }` | `{ diff }` |
+| `git.log` | `{ limit?, format? }` | `{ commits: [...], count }` |
+| `git.branches` | `{ remote? }` | `{ branches: [...], count }` |
+| `git.add` | `{ paths? }` | `{ added, output }` |
+| `git.commit` | `{ message }` | `{ committed, output }` |
+| `git.show` | `{ ref? }` | `{ ref, output }` |
+| `git.revParse` | `{ ref? }` | `{ ref, sha }` |
+
+#### Search
+
+| Method | Params | Returns |
+|---|---|---|
+| `search.files` | `{ pattern?, path?, maxDepth? }` | `{ pattern, count, files: [...] }` |
+| `search.grep` | `{ pattern, path?, maxResults?, ignoreCase? }` | `{ pattern, count, matches: [...] }` |
+| `search.find` | alias for `search.files` | — |
+
+#### Environment variables
+
+| Method | Params | Returns |
+|---|---|---|
+| `env.get` | `{ name }` | `{ name, exists, value }` |
+| `env.list` | `{ prefix? }` | `{ count, vars: [...] }` |
+| `env.set` | `{ name, value }` | `{ name, value, set }` |
+| `env.unset` | `{ name }` | `{ name, unset }` |
+
+#### Clipboard
+
+| Method | Params | Returns |
+|---|---|---|
+| `clip.read` | — | `{ content, backend }` |
+| `clip.write` | `{ content }` | `{ written, length, backend }` |
+
+#### Crypto
+
+| Method | Params | Returns |
+|---|---|---|
+| `crypto.hash` | `{ algorithm?, input, encoding? }` | `{ algorithm, digest, length }` |
+| `crypto.uuid` | — | `{ uuid }` |
+| `crypto.random` | `{ bytes?, encoding? }` | `{ bytes, encoding, value }` |
+| `crypto.hmac` | `{ algorithm?, key, message, encoding? }` | `{ algorithm, digest }` |
+| `crypto.base64Encode` | `{ input }` | `{ encoded }` |
+| `crypto.base64Decode` | `{ input }` | `{ decoded }` |
+
+#### Time
+
+| Method | Params | Returns |
+|---|---|---|
+| `time.now` | `{ timezone? }` | `{ iso, epochMs, local, components }` |
+| `time.sleep` | `{ ms }` | `{ sleptMs, requestedMs, capped }` |
 
 Errors follow JSON-RPC:
 
@@ -314,22 +483,37 @@ Project layout:
 ```
 onlineagent-connector/
 ├── bin/
-│   └── cli.js              # CLI entry point (commander.js)
+│   └── cli.js              # CLI entry point (commander.js) — default action launches TUI
 ├── src/
 │   ├── index.js            # public API
 │   ├── Server.js           # HTTP + WebSocket server
 │   ├── AuthManager.js      # pairing code generation & validation
-│   ├── AgentProtocol.js    # JSON-RPC 2.0 method dispatch
+│   ├── AgentProtocol.js    # JSON-RPC 2.0 method dispatch (53 methods)
 │   ├── CommandExecutor.js  # cross-platform shell execution
 │   ├── FileSystemAPI.js    # sandboxed file operations
 │   ├── SystemInfo.js       # system & disk info
 │   ├── Platform.js         # platform detection (Windows/Linux/macOS/Termux)
-│   └── Logger.js           # ANSI-colored logger
+│   ├── Logger.js           # ANSI-colored logger
+│   ├── Config.js           # persistent config (~/.onlineagent/config.json)
+│   ├── TuiApp.js           # the blessed-based TUI (onboarding + dashboard)
+│   └── tools/
+│       ├── ProcessAPI.js     # proc.list / proc.kill / proc.tree / proc.me
+│       ├── NetworkAPI.js     # net.http / net.dns / net.ping / net.ip
+│       ├── GitAPI.js         # git.status / git.diff / git.log / git.commit / ...
+│       ├── SearchAPI.js      # search.files / search.grep / search.find
+│       ├── EnvAPI.js         # env.get / env.list / env.set / env.unset
+│       ├── ClipboardAPI.js   # clip.read / clip.write
+│       ├── CryptoAPI.js      # crypto.hash / crypto.uuid / crypto.hmac / ...
+│       ├── TimeAPI.js        # time.now / time.sleep
+│       └── AgentInteraction.js  # agent.message / agent.ask / agent.notify / agent.progress
 ├── examples/
 │   ├── node-agent.js       # interactive Node.js agent client
 │   └── python-agent.py     # interactive Python agent client
 ├── tests/
-│   └── basic.test.js       # smoke tests
+│   ├── basic.test.js       # smoke tests (7)
+│   ├── e2e.test.js         # end-to-end protocol tests (9)
+│   ├── tools.test.js       # v2.0 tools tests (20)
+│   └── interaction.test.js # agent.ask / agent.message / etc. (6)
 ├── package.json
 ├── LICENSE
 └── README.md

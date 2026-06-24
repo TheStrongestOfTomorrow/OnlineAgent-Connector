@@ -2,25 +2,31 @@
 'use strict';
 
 /**
- * OnlineAgent-Connector CLI entry point.
+ * OnlineAgent-Connector CLI entry point (v2.0).
  *
- * Usage:
+ * Default action (no subcommand): launches the TUI.
+ *   - First run: shows onboarding, then dashboard.
+ *   - Subsequent runs: goes straight to the dashboard.
+ *
+ * Subcommands still work for non-interactive use:
  *   onlineagent start [--port 7777] [--host 127.0.0.1] [--lan] [--tunnel]
  *   onlineagent code                       # re-display current pairing code
  *   onlineagent status                     # show server status
  *   onlineagent stop                       # stop a running server
+ *   onlineagent info                       # platform diagnostics
+ *   onlineagent tui                        # explicitly launch the TUI
  *   onlineagent version
  */
 
 const { Command } = require('commander');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
 
 const pkg = require('../package.json');
 const { startServer, findRunningServer, stopRunningServer } = require('../src/index');
 const Platform = require('../src/Platform');
 const Logger = require('../src/Logger');
+const TuiApp = require('../src/TuiApp');
 
 const program = new Command();
 
@@ -29,9 +35,23 @@ program
   .description('OnlineAgent-Connector — host a local server so AI agents can connect via a pairing code.')
   .version(pkg.version, '-v, --version', 'print the CLI version');
 
+// Default action: launch TUI when no subcommand is given
+program.action(async () => {
+  const tui = new TuiApp();
+  await tui.run();
+});
+
+program
+  .command('tui')
+  .description('Launch the interactive TUI (default action).')
+  .action(async () => {
+    const tui = new TuiApp();
+    await tui.run();
+  });
+
 program
   .command('start')
-  .description('Start the local agent-connecting server and print a pairing code.')
+  .description('Start the local agent-connecting server (no TUI) and print a pairing code.')
   .option('-p, --port <port>', 'TCP port to listen on', '7777')
   .option('-H, --host <host>', 'Hostname / interface to bind', '127.0.0.1')
   .option('--lan', 'Bind to 0.0.0.0 so agents on the same LAN can connect', false)
@@ -66,38 +86,24 @@ program
 
     try {
       const server = await startServer({
-        host,
-        port,
-        cwd,
-        capabilities,
-        code: opts.code,
-        logger,
-        platform,
+        host, port, cwd, capabilities,
+        code: opts.code, logger, platform,
       });
 
-      // Print pairing info
       server.printConnectionInfo({
         showTunnelHint: opts.tunnel,
         showQr: opts.qr,
       });
 
-      // Graceful shutdown
       const shutdown = async (signal) => {
         logger.warn(`\nReceived ${signal}, shutting down…`);
-        try {
-          await server.stop();
-          process.exit(0);
-        } catch (e) {
-          logger.error('Error during shutdown:', e.message);
-          process.exit(1);
-        }
+        try { await server.stop(); process.exit(0); }
+        catch (e) { logger.error('Error during shutdown:', e.message); process.exit(1); }
       };
-
       process.on('SIGINT', () => shutdown('SIGINT'));
       process.on('SIGTERM', () => shutdown('SIGTERM'));
       process.on('SIGHUP', () => shutdown('SIGHUP'));
 
-      // Write a PID/info file so other CLI subcommands can find the running server
       server.writeStateFile();
     } catch (e) {
       logger.error('Failed to start server:', e.message);
@@ -147,11 +153,8 @@ program
   .description('Stop a running server (if any).')
   .action(() => {
     const ok = stopRunningServer();
-    if (ok) {
-      console.log('Server stopped.');
-    } else {
-      console.log('No running server found.');
-    }
+    if (ok) console.log('Server stopped.');
+    else console.log('No running server found.');
   });
 
 program

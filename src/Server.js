@@ -26,9 +26,18 @@ const CommandExecutor = require('./CommandExecutor');
 const FileSystemAPI = require('./FileSystemAPI');
 const SystemInfo = require('./SystemInfo');
 const { AgentProtocol } = require('./AgentProtocol');
+const ProcessAPI = require('./tools/ProcessAPI');
+const NetworkAPI = require('./tools/NetworkAPI');
+const GitAPI = require('./tools/GitAPI');
+const SearchAPI = require('./tools/SearchAPI');
+const EnvAPI = require('./tools/EnvAPI');
+const ClipboardAPI = require('./tools/ClipboardAPI');
+const CryptoAPI = require('./tools/CryptoAPI');
+const TimeAPI = require('./tools/TimeAPI');
+const AgentInteraction = require('./tools/AgentInteraction');
 
 class Server {
-  constructor({ host, port, cwd, capabilities, code, logger, platform }) {
+  constructor({ host, port, cwd, capabilities, code, logger, platform, agentConfig = {} }) {
     this.host = host;
     this.port = port;
     this.cwd = cwd;
@@ -42,11 +51,29 @@ class Server {
     this.executor = new CommandExecutor({ platform, cwd, capabilities });
     this.fsApi = new FileSystemAPI({ cwd, capabilities });
     this.sysInfo = new SystemInfo({ platform, cwd });
+    this.procApi = new ProcessAPI({ platform });
+    this.netApi = new NetworkAPI({ platform });
+    this.gitApi = new GitAPI({ cwd });
+    this.searchApi = new SearchAPI({ cwd, capabilities });
+    this.envApi = new EnvAPI({ capabilities });
+    this.clipApi = new ClipboardAPI({ platform });
+    this.cryptoApi = new CryptoAPI();
+    this.timeApi = new TimeAPI({});
+    this.agentInteraction = new AgentInteraction({ platform, logger, agentConfig });
     this.protocol = new AgentProtocol({
       auth: this.auth,
       executor: this.executor,
       fsApi: this.fsApi,
       sysInfo: this.sysInfo,
+      procApi: this.procApi,
+      netApi: this.netApi,
+      gitApi: this.gitApi,
+      searchApi: this.searchApi,
+      envApi: this.envApi,
+      clipApi: this.clipApi,
+      cryptoApi: this.cryptoApi,
+      timeApi: this.timeApi,
+      agentInteraction: this.agentInteraction,
       logger: this.logger,
       serverId: this.serverId,
     });
@@ -107,12 +134,21 @@ class Server {
         platform: this.platform.label(),
         agentCount: this.auth.agentCount(),
         protocol: 'JSON-RPC 2.0 over WebSocket',
-        methods: [
-          'ping', 'auth', 'agent.whoami', 'agent.list',
-          'sys.info', 'sys.diskUsage',
-          'shell.exec',
-          'fs.read', 'fs.write', 'fs.list', 'fs.stat', 'fs.rm', 'fs.mkdir', 'fs.rename', 'fs.copy', 'fs.tree',
-        ],
+        methods: {
+          auth: ['ping', 'auth'],
+          agent: ['agent.whoami', 'agent.list', 'agent.message', 'agent.ask', 'agent.notify', 'agent.progress'],
+          system: ['sys.info', 'sys.diskUsage'],
+          shell: ['shell.exec'],
+          fs: ['fs.read', 'fs.write', 'fs.list', 'fs.stat', 'fs.rm', 'fs.mkdir', 'fs.rename', 'fs.copy', 'fs.tree'],
+          proc: ['proc.list', 'proc.kill', 'proc.tree', 'proc.me'],
+          net: ['net.http', 'net.dns', 'net.ping', 'net.ip'],
+          git: ['git.status', 'git.diff', 'git.log', 'git.branches', 'git.add', 'git.commit', 'git.show', 'git.revParse'],
+          search: ['search.files', 'search.grep', 'search.find'],
+          env: ['env.get', 'env.list', 'env.set', 'env.unset'],
+          clip: ['clip.read', 'clip.write'],
+          crypto: ['crypto.hash', 'crypto.uuid', 'crypto.random', 'crypto.hmac', 'crypto.base64Encode', 'crypto.base64Decode'],
+          time: ['time.now', 'time.sleep'],
+        },
       }));
       return;
     }

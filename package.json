@@ -1,16 +1,17 @@
 {
   "name": "@thestrongestoftomorrow/onlineagent-connector",
-  "version": "1.0.0",
-  "description": "Cross-platform Terminal CLI that hosts a local server so AI agents can connect via a pairing code. Works on Windows, Linux, macOS, and Android (Termux).",
+  "version": "2.0.0",
+  "description": "Cross-platform Terminal CLI + TUI that hosts a local server so AI agents can connect via a pairing code and respond directly in your terminal. Works on Windows, Linux, macOS, and Android (Termux).",
   "main": "src/index.js",
   "bin": {
     "onlineagent": "bin/cli.js",
     "oac": "bin/cli.js"
   },
   "scripts": {
-    "start": "node bin/cli.js start",
+    "start": "node bin/cli.js",
+    "tui": "node bin/cli.js tui",
     "oac": "node bin/cli.js",
-    "test": "node tests/basic.test.js",
+    "test": "node tests/basic.test.js && node tests/e2e.test.js",
     "prepublishOnly": "node bin/cli.js --version"
   },
   "keywords": [
@@ -67,8 +68,8 @@
     "CHANGELOG.md"
   ],
   "dependencies": {
+    "blessed": "^0.1.81",
     "commander": "^12.1.0",
     "ws": "^8.18.0"
-  },
-  "devDependencies": {}
+  }
 }
