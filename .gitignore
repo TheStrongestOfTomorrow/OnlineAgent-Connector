@@ -1,0 +1,16 @@
+node_modules/
+*.log
+.DS_Store
+.env
+.env.local
+*.pid
+.npmrc.local
+.vscode/
+.idea/
+coverage/
+.nyc_output/
+dist/
+build/
+*.tgz
+.onlineagent/
+.oac-tmp/

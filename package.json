@@ -1,0 +1,74 @@
+{
+  "name": "@thestrongestoftomorrow/onlineagent-connector",
+  "version": "1.0.0",
+  "description": "Cross-platform Terminal CLI that hosts a local server so AI agents can connect via a pairing code. Works on Windows, Linux, macOS, and Android (Termux).",
+  "main": "src/index.js",
+  "bin": {
+    "onlineagent": "bin/cli.js",
+    "oac": "bin/cli.js"
+  },
+  "scripts": {
+    "start": "node bin/cli.js start",
+    "oac": "node bin/cli.js",
+    "test": "node tests/basic.test.js",
+    "prepublishOnly": "node bin/cli.js --version"
+  },
+  "keywords": [
+    "cli",
+    "ai-agent",
+    "local-server",
+    "websocket",
+    "cross-platform",
+    "termux",
+    "remote-shell",
+    "agent-connector",
+    "mcp",
+    "agent-tool"
+  ],
+  "author": "TheStrongestOfTomorrow",
+  "license": "MIT",
+  "homepage": "https://github.com/TheStrongestOfTomorrow/OnlineAgent-Connector#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheStrongestOfTomorrow/OnlineAgent-Connector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TheStrongestOfTomorrow/OnlineAgent-Connector/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32",
+    "android",
+    "freebsd",
+    "openbsd"
+  ],
+  "cpu": [
+    "x64",
+    "arm64",
+    "arm",
+    "ia32",
+    "mips",
+    "ppc64"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "examples/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "dependencies": {
+    "commander": "^12.1.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {}
+}

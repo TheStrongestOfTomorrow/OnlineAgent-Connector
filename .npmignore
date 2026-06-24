@@ -1,0 +1,13 @@
+# Keep npm publish lean — exclude dev-only files.
+# The package.json "files" field already whitelists what's published;
+# this .npmignore is a safety net for local development artifacts.
+tests/
+docs/
+.git/
+.github/
+.vscode/
+.idea/
+*.log
+*.md.tmp
+coverage/
+.nyc_output/
