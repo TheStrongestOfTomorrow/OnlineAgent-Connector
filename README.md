@@ -452,88 +452,20 @@ When using a tunnel, give the AI agent the `wss://` (secure WebSocket) URL the t
 
 ---
 
-## Publishing a new version (maintainers)
+## For maintainers & contributors
 
-As of v2.1, **publishing happens via GitHub Actions** using npm's [provenance](https://docs.npmjs.com/generating-provenance-statements) feature (OIDC trusted publishing — no long-lived npm tokens in the repo). The workflow lives at [`.github/workflows/npm-publish.yml`](.github/workflows/npm-publish.yml) and triggers automatically when a `v*` tag is pushed.
-
-To release a new version:
-
-```bash
-# 1. Bump the version (creates the commit + tag locally)
-npm version patch      # or minor / major
-
-# 2. Push the commit AND the tag
-git push --follow-tags
-
-# 3. GitHub Actions will:
-#    - run the test suite
-#    - publish to https://registry.npmjs.org/package/online-agent
-#    - attach a signed provenance statement to the published artifact
-```
-
-You can watch the run at https://github.com/TheStrongestOfTomorrow/OnlineAgent-Connector/actions. Once it completes, the new version is visible at https://www.npmjs.com/package/online-agent.
-
-### One-time setup (already done for this repo)
-
-The npm account `totallynotdrip` owns the `online-agent` package. To enable trusted publishing via GitHub Actions OIDC:
-
-1. In npm, go to **Account → Access Tokens → New Token → Granular Access Token** with **Read and write** permission scoped to `online-agent`, expiry ≤ 1 year.
-2. Add it as a repository secret in GitHub: **Settings → Secrets and variables → Actions → New repository secret** named `NPM_TOKEN`.
-3. Confirm the workflow file `.github/workflows/npm-publish.yml` uses `provenance: true` and `id-token: write`.
-
-After this, **no human ever needs to type an npm token locally** — all publishing goes through the CI with a signed provenance trail.
+If you're contributing to the project or cutting a release, see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development setup, test suite, release flow, project layout, and code-style conventions.
 
 ---
 
-## Development
+## Development (quick start)
 
 ```bash
 git clone https://github.com/TheStrongestOfTomorrow/OnlineAgent-Connector.git
 cd OnlineAgent-Connector
 npm install
-npm test                  # run smoke tests
-npm start                 # start the server in dev mode
-```
-
-Project layout:
-
-```
-onlineagent-connector/
-├── bin/
-│   └── cli.js              # CLI entry point (commander.js) — default action launches TUI
-├── src/
-│   ├── index.js            # public API
-│   ├── Server.js           # HTTP + WebSocket server
-│   ├── AuthManager.js      # pairing code generation & validation
-│   ├── AgentProtocol.js    # JSON-RPC 2.0 method dispatch (53 methods)
-│   ├── CommandExecutor.js  # cross-platform shell execution
-│   ├── FileSystemAPI.js    # sandboxed file operations
-│   ├── SystemInfo.js       # system & disk info
-│   ├── Platform.js         # platform detection (Windows/Linux/macOS/Termux)
-│   ├── Logger.js           # ANSI-colored logger
-│   ├── Config.js           # persistent config (~/.onlineagent/config.json)
-│   ├── TuiApp.js           # the blessed-based TUI (onboarding + dashboard)
-│   └── tools/
-│       ├── ProcessAPI.js     # proc.list / proc.kill / proc.tree / proc.me
-│       ├── NetworkAPI.js     # net.http / net.dns / net.ping / net.ip
-│       ├── GitAPI.js         # git.status / git.diff / git.log / git.commit / ...
-│       ├── SearchAPI.js      # search.files / search.grep / search.find
-│       ├── EnvAPI.js         # env.get / env.list / env.set / env.unset
-│       ├── ClipboardAPI.js   # clip.read / clip.write
-│       ├── CryptoAPI.js      # crypto.hash / crypto.uuid / crypto.hmac / ...
-│       ├── TimeAPI.js        # time.now / time.sleep
-│       └── AgentInteraction.js  # agent.message / agent.ask / agent.notify / agent.progress
-├── examples/
-│   ├── node-agent.js       # interactive Node.js agent client
-│   └── python-agent.py     # interactive Python agent client
-├── tests/
-│   ├── basic.test.js       # smoke tests (7)
-│   ├── e2e.test.js         # end-to-end protocol tests (9)
-│   ├── tools.test.js       # v2.0 tools tests (20)
-│   └── interaction.test.js # agent.ask / agent.message / etc. (6)
-├── package.json
-├── LICENSE
-└── README.md
+npm test                  # run all 4 test suites (42 assertions)
+npm start                 # launch the TUI in dev mode
 ```
 
 ---

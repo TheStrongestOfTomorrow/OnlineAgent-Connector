@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.1 — 2026-06-24
+
+### Changed
+- README is now user-only. Moved maintainer publishing docs (release flow, npm token setup, trusted-publishing config) out of README and into a new `CONTRIBUTING.md` that is excluded from the npm tarball. End users no longer see internal release-process details.
+- `CONTRIBUTING.md` covers: dev setup, running tests, cutting a release, versioning policy, code style, and filing issues.
+- `.npmignore` updated to exclude `CONTRIBUTING.md` from the published package.
+
+---
+
 ## 2.1.0 — 2026-06-24
 
 ### Changed — distribution
@@ -8,9 +17,10 @@
 - Renamed the CLI binary from `onlineagent` to `online-agent`. The `oac` short alias is unchanged.
 - Updated `publishConfig` in `package.json` to point at `https://registry.npmjs.org`.
 
-### Added — trusted publishing
-- New `.github/workflows/npm-publish.yml` GitHub Actions workflow publishes to npm on every `v*` tag push, using npm's [provenance](https://docs.npmjs.com/generating-provenance-statements) feature (OIDC trusted publishing). No long-lived npm tokens are stored in the repo; the `NPM_TOKEN` repository secret is a granular access token scoped to just the `online-agent` package.
-- README has a new "Publishing a new version (maintainers)" section documenting the `npm version` → `git push --follow-tags` release flow.
+### Added — release infrastructure
+- New `.github/workflows/npm-publish.yml` workflow publishes to npm on `v*` tag push (with provenance signing).
+- New `.github/workflows/ci.yml` runs the test suite on Node 18/20/22 across Linux, Windows, and macOS for every push and PR.
+- New `CONTRIBUTING.md` documents the development setup, release flow, and code-style conventions. Intentionally excluded from the npm tarball so end users don't see maintainer docs.
 
 ### Migration notes for existing users
 1. `npm uninstall -g @thestrongestoftomorrow/onlineagent-connector`

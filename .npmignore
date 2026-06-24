@@ -11,3 +11,5 @@ docs/
 *.md.tmp
 coverage/
 .nyc_output/
+# CONTRIBUTING.md is for repo contributors, not end users.
+CONTRIBUTING.md
