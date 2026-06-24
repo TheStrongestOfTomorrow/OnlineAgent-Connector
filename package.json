@@ -1,10 +1,10 @@
 {
-  "name": "@thestrongestoftomorrow/onlineagent-connector",
-  "version": "2.0.0",
+  "name": "online-agent",
+  "version": "2.1.0",
   "description": "Cross-platform Terminal CLI + TUI that hosts a local server so AI agents can connect via a pairing code and respond directly in your terminal. Works on Windows, Linux, macOS, and Android (Termux).",
   "main": "src/index.js",
   "bin": {
-    "onlineagent": "bin/cli.js",
+    "online-agent": "bin/cli.js",
     "oac": "bin/cli.js"
   },
   "scripts": {
@@ -24,7 +24,10 @@
     "remote-shell",
     "agent-connector",
     "mcp",
-    "agent-tool"
+    "agent-tool",
+    "online-agent",
+    "tui",
+    "json-rpc"
   ],
   "author": "TheStrongestOfTomorrow",
   "license": "MIT",
@@ -57,7 +60,7 @@
   ],
   "publishConfig": {
     "access": "public",
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org"
   },
   "files": [
     "bin/",

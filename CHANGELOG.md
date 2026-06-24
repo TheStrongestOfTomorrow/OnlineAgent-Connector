@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.1.0 — 2026-06-24
+
+### Changed — distribution
+- **Switched from GitHub Packages to npm.** The package is now published as [`online-agent`](https://www.npmjs.com/package/online-agent) on the public npm registry. No PAT or `.npmrc` configuration required to install — just `npm i -g online-agent`.
+- **GitHub Packages is deprecated.** The old `@thestrongestoftomorrow/onlineagent-connector` package on `npm.pkg.github.com` is frozen at v2.0.0 and will not receive further updates. Existing users should migrate (see README).
+- Renamed the CLI binary from `onlineagent` to `online-agent`. The `oac` short alias is unchanged.
+- Updated `publishConfig` in `package.json` to point at `https://registry.npmjs.org`.
+
+### Added — trusted publishing
+- New `.github/workflows/npm-publish.yml` GitHub Actions workflow publishes to npm on every `v*` tag push, using npm's [provenance](https://docs.npmjs.com/generating-provenance-statements) feature (OIDC trusted publishing). No long-lived npm tokens are stored in the repo; the `NPM_TOKEN` repository secret is a granular access token scoped to just the `online-agent` package.
+- README has a new "Publishing a new version (maintainers)" section documenting the `npm version` → `git push --follow-tags` release flow.
+
+### Migration notes for existing users
+1. `npm uninstall -g @thestrongestoftomorrow/onlineagent-connector`
+2. Remove the `@thestrongestoftomorrow:registry=` and `//npm.pkg.github.com/:_authToken=` lines from `~/.npmrc`.
+3. `npm install -g online-agent`
+4. Replace any `onlineagent` invocations with `online-agent` (or use the `oac` alias which is unchanged).
+
+---
+
 ## 2.0.0 — 2026-06-24
 
 ### Added — TUI

@@ -1,7 +1,9 @@
 # OnlineAgent-Connector
 
 > Cross-platform Terminal CLI that hosts a **local server** on your machine so **AI agents** can connect to it by entering a **pairing code**.
-> Works on **Windows, Linux, macOS, FreeBSD, OpenBSD, and Android (Termux)**. Installable as an **npm package from GitHub Packages**.
+> Works on **Windows, Linux, macOS, FreeBSD, OpenBSD, and Android (Termux)**. Installable from **npm** as [`online-agent`](https://www.npmjs.com/package/online-agent).
+>
+> ⚠️ **GitHub Packages is deprecated as of v2.1.** The old `@thestrongestoftomorrow/onlineagent-connector` package on GitHub Packages is frozen at v2.0.0 and will not receive further updates. **Please switch to `online-agent` on npm** — see [Install](#install) below.
 
 ```
   ╔══════════════════════════════════════════════════════╗
@@ -40,28 +42,29 @@ The agent connects over WebSocket using JSON-RPC 2.0 and authenticates with the 
 
 ## Install
 
-### From GitHub Packages (recommended)
-
-**1. Authenticate to GitHub Packages** (one-time, per machine). Create a Personal Access Token with `read:packages` scope at https://github.com/settings/tokens and add this to `~/.npmrc` (Linux/macOS/Termux) or `%USERPROFILE%\.npmrc` (Windows):
-
-```ini
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PAT
-@thestrongestoftomorrow:registry=https://npm.pkg.github.com
-```
-
-**2. Install globally:**
+### From npm (recommended)
 
 ```bash
-npm install -g @thestrongestoftomorrow/onlineagent-connector
+npm install -g online-agent
 ```
 
-You now have two commands on your PATH: `onlineagent` and `oac` (short alias).
+That's it — no PAT, no `.npmrc` edits, no scoped registry. You now have two commands on your PATH:
+
+- `online-agent` (primary)
+- `oac` (short alias)
 
 ### Run without installing (npx)
 
 ```bash
-npx @thestrongestoftomorrow/onlineagent-connector start
+npx online-agent
 ```
+
+> **Migrating from GitHub Packages?** The old `@thestrongestoftomorrow/onlineagent-connector` package (frozen at v2.0.0) is deprecated. To migrate:
+>
+> 1. `npm uninstall -g @thestrongestoftomorrow/onlineagent-connector`
+> 2. Remove the `@thestrongestoftomorrow:registry=` and `//npm.pkg.github.com/:_authToken=` lines from `~/.npmrc` (no longer needed).
+> 3. `npm install -g online-agent`
+> 4. Replace any `onlineagent` command invocations with `online-agent` (the `oac` alias is unchanged).
 
 ### From source (for development)
 
@@ -69,7 +72,7 @@ npx @thestrongestoftomorrow/onlineagent-connector start
 git clone https://github.com/TheStrongestOfTomorrow/OnlineAgent-Connector.git
 cd OnlineAgent-Connector
 npm install
-npm link        # makes `onlineagent` available globally on your dev machine
+npm link        # makes `online-agent` available globally on your dev machine
 ```
 
 ---
@@ -92,8 +95,8 @@ Node.js ≥ 16 is required on every platform.
 # 1. Install Termux from F-Droid (NOT Google Play — that version is outdated)
 # 2. Inside Termux:
 pkg update && pkg install nodejs git
-npm install -g @thestrongestoftomorrow/onlineagent-connector
-onlineagent start --port 7777
+npm install -g online-agent
+online-agent start --port 7777
 ```
 
 You can then point an AI agent at `ws://127.0.0.1:7777/` from the same phone (e.g. running another Node.js script in Termux), or use `--lan` to expose it to other devices on your Wi-Fi.
@@ -413,7 +416,7 @@ Errors follow JSON-RPC:
 You can also use the connector as a library:
 
 ```js
-const { startServer } = require('@thestrongestoftomorrow/onlineagent-connector');
+const { startServer } = require('online-agent');
 
 const server = await startServer({
   host: '127.0.0.1',
@@ -451,20 +454,34 @@ When using a tunnel, give the AI agent the `wss://` (secure WebSocket) URL the t
 
 ## Publishing a new version (maintainers)
 
-This package is configured for **GitHub Packages**. To publish:
+As of v2.1, **publishing happens via GitHub Actions** using npm's [provenance](https://docs.npmjs.com/generating-provenance-statements) feature (OIDC trusted publishing — no long-lived npm tokens in the repo). The workflow lives at [`.github/workflows/npm-publish.yml`](.github/workflows/npm-publish.yml) and triggers automatically when a `v*` tag is pushed.
+
+To release a new version:
 
 ```bash
-# 1. Authenticate (one-time)
-echo "//npm.pkg.github.com/:_authToken=YOUR_PAT_WITH_WRITE:packages_SCOPE" >> ~/.npmrc
-
-# 2. Bump version
+# 1. Bump the version (creates the commit + tag locally)
 npm version patch      # or minor / major
 
-# 3. Publish
-npm publish
+# 2. Push the commit AND the tag
+git push --follow-tags
+
+# 3. GitHub Actions will:
+#    - run the test suite
+#    - publish to https://registry.npmjs.org/package/online-agent
+#    - attach a signed provenance statement to the published artifact
 ```
 
-The `publishConfig` in `package.json` already points to `https://npm.pkg.github.com`, and the package is scoped to `@thestrongestoftomorrow` so it lands in the right place automatically.
+You can watch the run at https://github.com/TheStrongestOfTomorrow/OnlineAgent-Connector/actions. Once it completes, the new version is visible at https://www.npmjs.com/package/online-agent.
+
+### One-time setup (already done for this repo)
+
+The npm account `totallynotdrip` owns the `online-agent` package. To enable trusted publishing via GitHub Actions OIDC:
+
+1. In npm, go to **Account → Access Tokens → New Token → Granular Access Token** with **Read and write** permission scoped to `online-agent`, expiry ≤ 1 year.
+2. Add it as a repository secret in GitHub: **Settings → Secrets and variables → Actions → New repository secret** named `NPM_TOKEN`.
+3. Confirm the workflow file `.github/workflows/npm-publish.yml` uses `provenance: true` and `id-token: write`.
+
+After this, **no human ever needs to type an npm token locally** — all publishing goes through the CI with a signed provenance trail.
 
 ---
 

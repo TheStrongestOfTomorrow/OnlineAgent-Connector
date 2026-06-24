@@ -31,7 +31,7 @@ const TuiApp = require('../src/TuiApp');
 const program = new Command();
 
 program
-  .name('onlineagent')
+  .name('online-agent')
   .description('OnlineAgent-Connector — host a local server so AI agents can connect via a pairing code.')
   .version(pkg.version, '-v, --version', 'print the CLI version');
 
