@@ -1,5 +1,45 @@
 # Changelog
 
+## 2.3.0 — 2026-06-25
+
+### Added — auto-updater
+- New `src/AutoUpdater.js` module. On TUI launch, it fetches `update.sh` from `https://raw.githubusercontent.com/TheStrongestOfTomorrow/OnlineAgent-Connector/main/update.sh` (public — no PAT needed) and compares the version inside with the installed version.
+- If a newer version is available, a non-intrusive yellow banner appears at the bottom of the TUI: `⬆ Update available: X → Y  [U] update now  [X] dismiss`.
+- Press `U` to download and run `update.sh`, which handles the actual install (npm first → GitHub Packages fallback → Docker last resort). Press `X` to dismiss.
+- New `online-agent update` subcommand for manual updates, with `--check-only` and `--force` flags.
+- The `update.sh` file in the repo is **replaced on every release**, so there is always exactly one `update.sh` and it always targets the latest version. Old per-version update scripts are deleted — no accumulation.
+- The auto-updater is non-blocking — if the fetch fails (offline, repo down), the TUI launches normally without any error.
+- This is the recommended way to stay current: users who lost their `.npmrc` or never had one can still update via the auto-updater, since `raw.githubusercontent.com` is public.
+
+### Added — Docker install path (Option C)
+- New `Dockerfile` builds a `node:20-slim`-based image with `bash`, `git`, `curl`, and `online-agent` installed globally. Runs as a non-root user.
+- New `.github/workflows/docker-publish.yml` builds and publishes the image to **GHCR** (`ghcr.io/thestrongestoftomorrow/online-agent`) on every `v*` tag push and on `main` branch pushes. Multi-arch (`linux/amd64` + `linux/arm64`). Uses `GITHUB_TOKEN` — no extra secrets.
+- Image tags: `:latest`, `:2.3.0`, `:2.3`, `:dev`.
+- **No PAT needed to pull** — GHCR is public-pull. This is the install path for users who can't (or don't want to) install Node.js or configure a PAT.
+- README has a new "Option C — Docker" install section with `docker pull` + `docker run` examples for both interactive (TUI) and headless modes.
+
+### Changed — README restructure
+- Top banner now shows **three install paths** (npm / GitHub Packages / Docker) in a comparison table with auth requirements and best-for notes.
+- Added a prominent notice that **npm publishing has hard limitations** (2FA / trusted-publishing requirement), explaining why every release is published to all three channels.
+- New "Staying up to date — the auto-updater" section documents the background check + manual `online-agent update` subcommand.
+- New "Publishing notes" section explains the three-channel strategy without exposing maintainer token setup (that stays in `CONTRIBUTING.md`).
+- Removed the old "GitHub Packages is deprecated" framing — GitHub Packages is now clearly framed as the recommended fallback, not a deprecated path.
+
+### Files added
+- `update.sh` — self-contained update script (npm → GPR → Docker fallback chain). Replaced on every release.
+- `src/AutoUpdater.js` — fetches update.sh, compares versions, runs the script.
+- `Dockerfile` — container image definition.
+- `.dockerignore` — keeps the Docker build context lean.
+- `.github/workflows/docker-publish.yml` — GHCR publishing workflow.
+
+### Files changed
+- `bin/cli.js` — added `update` subcommand.
+- `src/TuiApp.js` — wires in the background auto-update check + banner UI.
+- `README.md` — three-channel install docs, auto-updater docs, publishing notes.
+- `package.json` — bumped to 2.3.0.
+
+---
+
 ## 2.2.1 — 2026-06-25
 
 ### Changed — README clarity on GitHub Packages

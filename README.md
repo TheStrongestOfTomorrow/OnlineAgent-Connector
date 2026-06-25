@@ -1,13 +1,19 @@
 # OnlineAgent-Connector
 
 > Cross-platform Terminal CLI that hosts a **local server** on your machine so **AI agents** can connect to it by entering a **pairing code**.
-> Works on **Windows, Linux, macOS, FreeBSD, OpenBSD, and Android (Termux)**. Published to **both npm** ([`online-agent`](https://www.npmjs.com/package/online-agent)) **and GitHub Packages** ([`@thestrongestoftomorrow/online-agent`](https://github.com/users/TheStrongestOfTomorrow/packages/npm/package/online-agent)) — same code, same version, two registries so you can pick whichever you can access.
+> Works on **Windows, Linux, macOS, FreeBSD, OpenBSD, and Android (Termux)**.
 >
-> ✅ **Both registries are fully supported.** Neither is deprecated.
-> - **npm** is the easiest install path (no setup, just `npm i -g online-agent`).
-> - **GitHub Packages** is the recommended fallback for anyone who can't use npm (e.g. 2FA requirements on trusted publishing, locked-down networks, or npm being unavailable). It just needs a free GitHub Personal Access Token with `read:packages` scope.
+> **Three install paths — pick whichever you can access:**
 >
-> ℹ️ The original v1 / v2.0 GitHub Packages package name (`@thestrongestoftomorrow/onlineagent-connector` — with a dash before "connector") was renamed in v2.1 to `@thestrongestoftomorrow/online-agent` for consistency with the npm name. The old name is frozen at v2.0.0; please switch to the new name.
+> | # | Method | Auth needed | Best for |
+> |---|---|---|---|
+> | **A** | **npm** — `npm i -g online-agent` | None | Most users. Easiest, zero setup. |
+> | **B** | **GitHub Packages** — `npm i -g @thestrongestoftomorrow/online-agent` | GitHub PAT (`read:packages`) | Fallback when npm is blocked / unavailable / 2FA-locked. |
+> | **C** | **Docker** — `docker run … thestrongestoftomorrow/online-agent` | None | No PAT, no Node.js install — runs in a container. |
+>
+> ⚠️ **npm publishing has hard limitations (2FA / trusted-publishing requirement).** For *installing* `online-agent`, npm is the easiest path. But for *publishing* new versions, npm's "trusted publisher" (OIDC) feature requires 2FA on the publishing account, which not all maintainers can use. As a result, **every release is published to all three channels** (npm + GitHub Packages + Docker) so the project never gets stuck if npm publishing breaks. See [Publishing notes](#publishing-notes) below.
+>
+> 🔄 **Built-in auto-updater.** Every time you launch `online-agent`, it silently checks `raw.githubusercontent.com` (public, no PAT needed) for a new version. If one is available, a banner appears in the TUI — press `U` to update, `X` to dismiss. You can also run `online-agent update` manually. This is the recommended way to stay current — no `.npmrc` wrangling required.
 
 ```
   ╔══════════════════════════════════════════════════════╗
@@ -81,12 +87,45 @@ The binary names are identical to the npm version (`online-agent` and `oac`).
 
 > Why two registries? npm's "trusted publisher" (OIDC) feature requires 2FA on the publishing account, which not everyone can use. GitHub Packages only needs a PAT, so it's the more accessible fallback. Both registries are kept in sync on every release.
 
+### Option C — Docker (no PAT, no Node.js install)
+
+For users who can't (or don't want to) install Node.js or configure a PAT, `online-agent` ships as a Docker image on the public GitHub Container Registry. **No PAT needed to pull.**
+
+```bash
+# Pull the latest image (no auth required)
+docker pull ghcr.io/thestrongestoftomorrow/online-agent:latest
+
+# Run interactively (launches the TUI)
+docker run -it --rm \
+  -p 7777:7777 \
+  -v "$PWD:/workspace" \
+  ghcr.io/thestrongestoftomorrow/online-agent:latest
+
+# Or run headless in the background, exposing the server on your LAN
+docker run -d --rm \
+  --name online-agent \
+  -p 7777:7777 \
+  -v "$PWD:/workspace" \
+  ghcr.io/thestrongestoftomorrow/online-agent:latest \
+  start --lan
+```
+
+**What the `-v` mount does:** your current directory (`$PWD`) is mounted into the container at `/workspace`. The agent is sandboxed there — `fs.read` / `fs.write` / `shell.exec` all operate on files inside `/workspace`, which is actually your host directory. So changes the AI makes show up on your host immediately.
+
+**Multi-arch:** the image is built for `linux/amd64` and `linux/arm64`, so it works on Apple Silicon Macs, Raspberry Pi 4, and most cloud VMs.
+
+**Tags:**
+- `:latest` — latest stable release
+- `:2.3.0` — pinned to a specific version
+- `:2.3` — latest patch of the 2.3.x line
+- `:dev` — latest commit on the `main` branch (unstable)
+
 ### Run without installing (npx)
 
 ```bash
 npx online-agent                # from npm
 # or
-npx @thestrongestoftomorrow/online-agent    # from GitHub Packages
+npx @thestrongestoftomorrow/online-agent    # from GitHub Packages (needs PAT in .npmrc)
 ```
 
 ### From source (for development)
@@ -97,6 +136,30 @@ cd OnlineAgent-Connector
 npm install
 npm link        # makes `online-agent` available globally on your dev machine
 ```
+
+### Staying up to date — the auto-updater
+
+Every time you launch `online-agent` (the TUI), it silently fetches [`update.sh`](https://raw.githubusercontent.com/TheStrongestOfTomorrow/OnlineAgent-Connector/main/update.sh) from the public GitHub raw URL — **no PAT needed**, since `raw.githubusercontent.com` is always public. It parses the target version out of the script header and compares it to your installed version.
+
+If a newer version is available, a yellow banner appears at the bottom of the TUI:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ ⬆ Update available: 2.2.1 → 2.3.0   [U] update now   [X] dismiss      │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+Press **`U`** to download and run the updater (it handles the install for you — npm first, GitHub Packages fallback, Docker last resort). Press **`X`** to dismiss.
+
+You can also trigger an update manually at any time:
+
+```bash
+online-agent update              # check + install
+online-agent update --check-only # just check, don't install
+online-agent update --force      # reinstall even if already current
+```
+
+The `update.sh` file in the repo is **replaced on every release**, so there is always exactly one `update.sh` and it always targets the latest version. Old per-version update scripts are deleted — no accumulation, no confusion.
 
 > **Migrating from the old v1 / v2.0 GitHub Packages package?** The original `@thestrongestoftomorrow/onlineagent-connector` (unscoped-with-dash name, frozen at v2.0.0) is deprecated. The new GitHub Packages name is `@thestrongestoftomorrow/online-agent`. To migrate:
 >
@@ -622,6 +685,36 @@ const server = await startServer({
 // server.serverId     -> unique server id
 await server.stop();           // graceful shutdown
 ```
+
+---
+
+## Publishing notes
+
+Every release is published to **three channels** simultaneously:
+
+| Channel | Artifact | Auth to install | Why it's there |
+|---|---|---|---|
+| **npm** | `online-agent@<version>` | None | Easiest install path for most users. |
+| **GitHub Packages** | `@thestrongestoftomorrow/online-agent@<version>` | GitHub PAT (`read:packages`) | Fallback when npm is blocked / unavailable / 2FA-locked. |
+| **Docker (GHCR)** | `ghcr.io/thestrongestoftomorrow/online-agent:<version>` | None | No Node.js install, no PAT — runs in a container. |
+
+### Why three channels?
+
+npm's "trusted publisher" (OIDC) feature requires **2FA on the publishing account**. Not all maintainers can use 2FA (locked-down devices, accessibility constraints, browser issues). If npm publishing breaks for any reason, the GitHub Packages and Docker channels keep working — the project never gets stuck.
+
+GitHub Packages requires a PAT to install (a hard platform limitation, not fixable), so by itself it's not enough. Docker (GHCR) is public-pull with no auth, but doesn't give users a host-installed `online-agent` binary — they have to invoke it via `docker run`.
+
+By publishing to all three, every user has at least one working path:
+
+- **No PAT, want native install** → npm (`npm i -g online-agent`)
+- **Has PAT, npm blocked** → GitHub Packages (`npm i -g @thestrongestoftomorrow/online-agent`)
+- **No PAT, no Node.js** → Docker (`docker run ghcr.io/thestrongestoftomorrow/online-agent`)
+
+### Auto-updater
+
+The auto-updater fetches `update.sh` from the `main` branch of this repo via `raw.githubusercontent.com` (always public, no PAT). The `update.sh` file is **replaced on every release** so it always targets the latest version. This means users who installed via GitHub Packages and later lost their `.npmrc` (or never had one) can still update — the updater downloads `update.sh`, which then tries npm → GitHub Packages → Docker in order until one works.
+
+If you're cutting a release, **update `update.sh`** to bump the `Version:` and `TARGET_VERSION` lines at the top of the file. See `CONTRIBUTING.md` for the full release checklist.
 
 ---
 

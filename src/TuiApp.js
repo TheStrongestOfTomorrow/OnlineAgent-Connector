@@ -30,7 +30,9 @@ const path = require('path');
 const Config = require('./Config');
 const Platform = require('./Platform');
 const Logger = require('./Logger');
+const AutoUpdater = require('./AutoUpdater');
 const { startServer } = require('./index');
+const pkg = require('../package.json');
 
 const COLORS = {
   bg: '#0a0e14',
@@ -331,8 +333,120 @@ class TuiApp {
 
     screen.render();
 
+    // Background update check — non-blocking, never delays the dashboard
+    this._runBackgroundUpdateCheck();
+
     // Keep alive
     await new Promise(() => {});
+  }
+
+  /**
+   * Background update check. Runs async after the dashboard is up so it
+   * never blocks the TUI from launching. If an update is available, it
+   * shows a small banner at the bottom of the screen offering to install.
+   */
+  async _runBackgroundUpdateCheck() {
+    try {
+      const updater = new AutoUpdater({
+        currentVersion: pkg.version,
+        logger: this._tuiLogger(),
+      });
+      const info = await updater.check();
+      if (info.error || !info.updateAvailable) return;
+
+      // Show a non-intrusive update banner
+      const updateBanner = blessed.box({
+        parent: this.screen,
+        bottom: 1, left: 1, right: 1, height: 3,
+        border: { type: 'line', fg: COLORS.yellow },
+        style: { bg: COLORS.panel, fg: COLORS.text },
+        tags: true,
+        content: ` {yellow-fg}⬆ Update available:{/} {bold}${info.currentVersion}{/} → {bold}${info.latestVersion}{/}   ` +
+                 `{cyan-fg}[U]{/} update now   {cyan-fg}[X]{/} dismiss`,
+        hidden: false,
+      });
+
+      this._updateInfo = info;
+      this._updateBanner = updateBanner;
+      this.screen.render();
+
+      // Key handlers
+      const onKeypress = (ch, key) => {
+        if (!this._updateBanner) {
+          this.screen.removeKeyListener('u', onKeypress);
+          this.screen.removeKeyListener('x', onKeypress);
+          return;
+        }
+        if (key.name === 'u' || (key.ch === 'u' || key.ch === 'U')) {
+          this._performUpdate(info);
+        } else if (key.name === 'x' || (key.ch === 'x' || key.ch === 'X')) {
+          updateBanner.destroy();
+          this._updateBanner = null;
+          this._updateInfo = null;
+          this.screen.removeKeyListener('u', onKeypress);
+          this.screen.removeKeyListener('x', onKeypress);
+          this.screen.render();
+        }
+      };
+      this.screen.key(['u', 'x'], onKeypress);
+    } catch (_) {
+      // Silent failure — update checks should never break the TUI
+    }
+  }
+
+  async _performUpdate(info) {
+    if (this._updateBanner) {
+      this._updateBanner.setContent(' {yellow-fg}⬆ Updating…{/} this may take a minute. Do not close the terminal.');
+      this.screen.render();
+    }
+    const updater = new AutoUpdater({ currentVersion: pkg.version, logger: this._tuiLogger() });
+    const onOutput = (line) => {
+      if (this._updateBanner) {
+        // Strip ANSI for display in the banner
+        const stripped = line.replace(/\x1b\[[0-9;]*m/g, '');
+        this._updateBanner.setContent(` {yellow-fg}⬆${stripped.slice(0, 80)}{/}`);
+        this.screen.render();
+      }
+      if (this.logsBox) {
+        this._pushLog('{cyan-fg}[update]{/} ' + line);
+      }
+    };
+    const result = await updater.runUpdate(info.script, { onOutput });
+    if (result.ok) {
+      if (this._updateBanner) {
+        this._updateBanner.destroy();
+        this._updateBanner = null;
+      }
+      // Show success message
+      const successBox = blessed.message({
+        parent: this.screen,
+        border: { type: 'line', fg: COLORS.green },
+        style: { bg: COLORS.bg, fg: COLORS.green },
+        tags: true,
+        height: 'shrink',
+        width: '50%',
+        top: 'center',
+        left: 'center',
+        label: ' Update complete ',
+      });
+      successBox.display('Update complete. Restart online-agent to use the new version.', 3, () => {
+        process.exit(0);
+      });
+      this.screen.render();
+    } else {
+      if (this._updateBanner) {
+        this._updateBanner.setContent(` {red-fg}⬆ Update failed (exit ${result.exitCode}).{/} See Logs tab. {cyan-fg}[X]{/} dismiss`);
+        this.screen.render();
+      }
+    }
+  }
+
+  _tuiLogger() {
+    return {
+      info: (...a) => this._pushLog('{cyan-fg}[update]{/} ' + a.join(' ')),
+      warn: (...a) => this._pushLog('{yellow-fg}[update]{/} ' + a.join(' ')),
+      error: (...a) => this._pushLog('{red-fg}[update]{/} ' + a.join(' ')),
+    };
   }
 
   _headerContent() {

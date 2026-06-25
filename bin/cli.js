@@ -165,6 +165,44 @@ program
     console.log(JSON.stringify(p.diagnostics(), null, 2));
   });
 
+program
+  .command('update')
+  .description('Check for updates and install the latest version if available.')
+  .option('--check-only', 'Only check for updates; do not install.', false)
+  .option('--force', 'Install the latest version even if already up to date.', false)
+  .action(async (opts) => {
+    const AutoUpdater = require('../src/AutoUpdater');
+    const updater = new AutoUpdater({ currentVersion: pkg.version });
+    console.log(`Current version: ${pkg.version}`);
+    console.log('Checking for updates…');
+    const info = await updater.check();
+    if (info.error) {
+      console.log('Could not check for updates:', info.error);
+      process.exit(1);
+    }
+    if (!info.updateAvailable && !opts.force) {
+      console.log(`Already on the latest version (${info.currentVersion}).`);
+      process.exit(0);
+    }
+    if (opts.checkOnly) {
+      console.log(`Update available: ${info.currentVersion} → ${info.latestVersion}`);
+      console.log('Run `online-agent update` (without --check-only) to install.');
+      process.exit(0);
+    }
+    console.log(`Update available: ${info.currentVersion} → ${info.latestVersion}`);
+    console.log('Downloading and running update.sh…\n');
+    const result = await updater.runUpdate(info.script, {
+      onOutput: (line) => console.log(line),
+    });
+    if (result.ok) {
+      console.log('\nUpdate complete. Re-run `online-agent` to use the new version.');
+      process.exit(0);
+    } else {
+      console.error(`\nUpdate failed (exit code ${result.exitCode}).`);
+      process.exit(1);
+    }
+  });
+
 program.parseAsync(process.argv).catch((e) => {
   console.error('Fatal:', e.message);
   process.exit(1);
