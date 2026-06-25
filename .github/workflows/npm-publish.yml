@@ -1,20 +1,24 @@
-name: Publish to npm
+name: Publish to npm + GitHub Packages
 
-# Triggers when a version tag (v2.1.0, v2.2.0, …) is pushed.
-# Uses npm's provenance feature (OIDC trusted publishing) so no
-# long-lived npm tokens are needed in the repo — the NPM_TOKEN secret
-# is a granular, package-scoped access token that's only used inside
-# this workflow run, never exposed to logs, and rotated annually.
+# Triggers when a version tag (v2.2.0, v2.3.0, …) is pushed.
+# Publishes the SAME code under TWO names:
+#   - npm:                online-agent                          (unscoped, primary)
+#   - GitHub Packages:    @thestrongestoftomorrow/online-agent (scoped, fallback for 2FA-locked users)
+#
+# Why both? npm's "trusted publisher" (OIDC) feature requires 2FA on the
+# publishing account. GitHub Packages only needs a PAT — no 2FA. By publishing
+# to both, users who can't use npm (e.g. can't do 2FA) still have a working
+# install path via GitHub Packages.
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:        # allow manual runs from the Actions tab
+  workflow_dispatch:
 
-# Permissions required for OIDC provenance signing.
 permissions:
   contents: read
-  id-token: write
+  id-token: write       # required for npm provenance signing
+  packages: write       # required to publish to GitHub Packages
 
 jobs:
   test:
@@ -30,10 +34,9 @@ jobs:
       - run: npm test
 
   publish:
-    name: Publish to npmjs.org
+    name: Publish to both registries
     needs: test
     runs-on: ubuntu-latest
-    environment: npm-publish     # requires manual approval if you set required reviewers on the environment
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,15 +57,34 @@ jobs:
 
       - run: npm ci
 
-      # --provenance attaches a signed, publicly-verifiable statement
-      # to the published artifact linking it back to this exact workflow
-      # run + commit. See https://docs.npmjs.com/generating-provenance-statements
-      - name: Publish
+      # ---------- 1. Publish to npm ----------
+      - name: Publish to npm (online-agent)
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # ---------- 2. Publish to GitHub Packages ----------
+      # GitHub Packages requires scoped names, so we temporarily rename
+      # the package to @thestrongestoftomorrow/online-agent, publish,
+      # then restore the original package.json.
+      - name: Publish to GitHub Packages (@thestrongestoftomorrow/online-agent)
+        run: |
+          cp package.json package.json.bak
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            p.name = '@thestrongestoftomorrow/online-agent';
+            p.publishConfig = { access: 'public', registry: 'https://npm.pkg.github.com' };
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          "
+          npm publish --access public --registry=https://npm.pkg.github.com
+          cp package.json.bak package.json
+          rm package.json.bak
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true

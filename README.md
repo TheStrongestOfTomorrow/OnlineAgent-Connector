@@ -1,9 +1,13 @@
 # OnlineAgent-Connector
 
 > Cross-platform Terminal CLI that hosts a **local server** on your machine so **AI agents** can connect to it by entering a **pairing code**.
-> Works on **Windows, Linux, macOS, FreeBSD, OpenBSD, and Android (Termux)**. Installable from **npm** as [`online-agent`](https://www.npmjs.com/package/online-agent).
+> Works on **Windows, Linux, macOS, FreeBSD, OpenBSD, and Android (Termux)**. Published to **both npm** ([`online-agent`](https://www.npmjs.com/package/online-agent)) **and GitHub Packages** ([`@thestrongestoftomorrow/online-agent`](https://github.com/users/TheStrongestOfTomorrow/packages/npm/package/online-agent)) — same code, same version, two registries so you can pick whichever you can access.
 >
-> ⚠️ **GitHub Packages is deprecated as of v2.1.** The old `@thestrongestoftomorrow/onlineagent-connector` package on GitHub Packages is frozen at v2.0.0 and will not receive further updates. **Please switch to `online-agent` on npm** — see [Install](#install) below.
+> ✅ **Both registries are fully supported.** Neither is deprecated.
+> - **npm** is the easiest install path (no setup, just `npm i -g online-agent`).
+> - **GitHub Packages** is the recommended fallback for anyone who can't use npm (e.g. 2FA requirements on trusted publishing, locked-down networks, or npm being unavailable). It just needs a free GitHub Personal Access Token with `read:packages` scope.
+>
+> ℹ️ The original v1 / v2.0 GitHub Packages package name (`@thestrongestoftomorrow/onlineagent-connector` — with a dash before "connector") was renamed in v2.1 to `@thestrongestoftomorrow/online-agent` for consistency with the npm name. The old name is frozen at v2.0.0; please switch to the new name.
 
 ```
   ╔══════════════════════════════════════════════════════╗
@@ -42,29 +46,48 @@ The agent connects over WebSocket using JSON-RPC 2.0 and authenticates with the 
 
 ## Install
 
-### From npm (recommended)
+`online-agent` is published to **two registries** with the same content. Pick whichever you can access — both give you the exact same code.
+
+### Option A — npm (recommended, no setup)
 
 ```bash
 npm install -g online-agent
 ```
 
-That's it — no PAT, no `.npmrc` edits, no scoped registry. You now have two commands on your PATH:
-
+That's it. No PAT, no `.npmrc` edits. The binary is now on your PATH as:
 - `online-agent` (primary)
 - `oac` (short alias)
+
+### Option B — GitHub Packages (use this if npm is blocked / 2FA-locked / unavailable)
+
+The package is mirrored to GitHub Packages as `@thestrongestoftomorrow/online-agent` (scoped name — GitHub Packages requires this). It contains **exactly the same code**, just published under a different name because GitHub Packages requires packages to be scoped to an org/user.
+
+> ⚠️ **GitHub Packages requires a PAT for ALL npm installs**, even for public packages. This is a hard GitHub limitation — there is no anonymous install path. You only need a `read:packages` scope token (free, no write access). If that's a dealbreaker, use Option A (npm) which needs no auth at all.
+
+**1. Authenticate to GitHub Packages** (one-time). Create a Personal Access Token with `read:packages` scope at https://github.com/settings/tokens and add to `~/.npmrc` (Linux/macOS/Termux) or `%USERPROFILE%\.npmrc` (Windows):
+
+```ini
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PAT
+@thestrongestoftomorrow:registry=https://npm.pkg.github.com
+```
+
+**2. Install globally:**
+
+```bash
+npm install -g @thestrongestoftomorrow/online-agent
+```
+
+The binary names are identical to the npm version (`online-agent` and `oac`).
+
+> Why two registries? npm's "trusted publisher" (OIDC) feature requires 2FA on the publishing account, which not everyone can use. GitHub Packages only needs a PAT, so it's the more accessible fallback. Both registries are kept in sync on every release.
 
 ### Run without installing (npx)
 
 ```bash
-npx online-agent
+npx online-agent                # from npm
+# or
+npx @thestrongestoftomorrow/online-agent    # from GitHub Packages
 ```
-
-> **Migrating from GitHub Packages?** The old `@thestrongestoftomorrow/onlineagent-connector` package (frozen at v2.0.0) is deprecated. To migrate:
->
-> 1. `npm uninstall -g @thestrongestoftomorrow/onlineagent-connector`
-> 2. Remove the `@thestrongestoftomorrow:registry=` and `//npm.pkg.github.com/:_authToken=` lines from `~/.npmrc` (no longer needed).
-> 3. `npm install -g online-agent`
-> 4. Replace any `onlineagent` command invocations with `online-agent` (the `oac` alias is unchanged).
 
 ### From source (for development)
 
@@ -74,6 +97,12 @@ cd OnlineAgent-Connector
 npm install
 npm link        # makes `online-agent` available globally on your dev machine
 ```
+
+> **Migrating from the old v1 / v2.0 GitHub Packages package?** The original `@thestrongestoftomorrow/onlineagent-connector` (unscoped-with-dash name, frozen at v2.0.0) is deprecated. The new GitHub Packages name is `@thestrongestoftomorrow/online-agent`. To migrate:
+>
+> 1. `npm uninstall -g @thestrongestoftomorrow/onlineagent-connector`
+> 2. `npm install -g @thestrongestoftomorrow/online-agent` (or `npm install -g online-agent` if you don't need GitHub Packages)
+> 3. The `onlineagent` CLI binary was renamed to `online-agent` in v2.1 — the `oac` alias is unchanged.
 
 ---
 
@@ -181,41 +210,204 @@ onlineagent --version
 
 ---
 
-## How an AI agent connects
+## How the AI connects — the full picture
 
-The agent speaks **JSON-RPC 2.0 over WebSocket**. The first message must be an `auth` request containing the pairing code.
+After you install and start `online-agent`, the AI needs three things to reach your machine:
+
+1. **A WebSocket URL** to connect to (`ws://…` or `wss://…`)
+2. **The pairing code** (the 6-digit number shown in the TUI / `onlineagent start` output)
+3. **A JSON-RPC 2.0 client** — either a few lines of raw WebSocket code, or one of the example clients in `examples/`
+
+The connection flow is always the same:
+
+```
+┌─────────────────┐                              ┌─────────────────┐
+│                 │   1. open WebSocket          │                 │
+│   AI agent      │ ───────────────────────────► │  online-agent   │
+│ (any language)  │                              │   (your host)   │
+│                 │   2. { method:"auth",       │                 │
+│                 │       params:{ code:"…" } }  │                 │
+│                 │ ───────────────────────────► │                 │
+│                 │                              │                 │
+│                 │   3. { result:{ ok:true } } │                 │
+│                 │ ◄─────────────────────────── │                 │
+│                 │                              │                 │
+│                 │   4. call any of 53 methods  │                 │
+│                 │      (shell.exec, fs.read,   │                 │
+│                 │       agent.message, …)      │                 │
+│                 │ ◄──────────────────────────► │                 │
+└─────────────────┘                              └─────────────────┘
+```
+
+### Step 1 — Start the server (on your machine)
+
+```bash
+online-agent          # launches the TUI; server auto-starts and prints a 6-digit code
+# OR, headless:
+online-agent start
+```
+
+The TUI's **Status tab** shows:
+- The pairing code (e.g. `481293`)
+- The WebSocket URL (e.g. `ws://127.0.0.1:7777/`)
+- Connected agents
+
+### Step 2 — Choose how the AI reaches you
+
+There are **three scenarios**. Pick the one that matches where your AI lives:
+
+| Scenario | Where the AI runs | URL the AI uses | Setup needed |
+|---|---|---|---|
+| **A. Same machine** | Local script, local LLM, another terminal | `ws://127.0.0.1:7777/` | None — default |
+| **B. Same Wi-Fi (LAN)** | Another laptop / phone on your network | `ws://192.168.x.x:7777/` | Start with `online-agent start --lan` |
+| **C. Remote / cloud** | ChatGPT, Claude API, a cloud LLM, a remote server | `wss://your-tunnel.trycloudflare.com/` | Run a tunnel (see below) |
+
+#### Scenario A — same machine
+
+Default mode. The AI agent runs as another process on the same computer (a Python script, a Node.js app, a local LLM tool). It connects to `ws://127.0.0.1:7777/` directly — no setup needed.
+
+```bash
+# In terminal 1
+online-agent
+
+# In terminal 2 (the AI agent)
+node examples/node-agent.js ws://127.0.0.1:7777/ 481293
+```
+
+#### Scenario B — same Wi-Fi (LAN)
+
+For when the AI runs on a different device on your home/office Wi-Fi (e.g. your phone, another laptop, a Raspberry Pi). Start the server with `--lan` so it binds to `0.0.0.0` instead of `127.0.0.1`:
+
+```bash
+online-agent start --lan
+# The TUI shows the LAN URL, e.g.:
+#   LAN WebSocket URL: ws://192.168.1.42:7777/
+```
+
+Then point the AI agent on the other device at that URL.
+
+> ⚠️ Anyone on the same Wi-Fi who guesses your 6-digit code can run commands. Use a longer code: `online-agent start --lan --code "my-secret-passphrase"`.
+
+#### Scenario C — remote / cloud AI
+
+For when the AI lives in the cloud (ChatGPT, Claude API, a remote agent framework like LangChain/AutoGen running on a server). You need a tunnel so the cloud AI can reach your laptop behind NAT.
+
+Pick one (all free for hobby use):
+
+```bash
+# Option 1: cloudflared (no signup, fastest)
+cloudflared tunnel --url http://localhost:7777
+# → prints: https://random-words-xxxx.trycloudflare.com
+
+# Option 2: ngrok (needs free account)
+ngrok http 7777
+# → prints: https://abcd-1-2-3-4.ngrok-free.app
+
+# Option 3: bore.pub (no signup, simple)
+bore local 7777 --to bore.pub
+# → prints: bore.pub:PORT
+```
+
+Give the AI agent the `wss://…` URL from the tunnel + your pairing code.
+
+> ⚠️ With a public tunnel, anyone on the internet who guesses your code can run shell commands. **Either** use a long alphanumeric code (`--code "long-random-passphrase"`), **or** disable shell+write (`--no-shell --no-write`) so the agent can only read/list files.
+
+### Step 3 — The agent authenticates & calls methods
+
+The agent speaks **JSON-RPC 2.0 over WebSocket**. The first message must be `auth` with the pairing code. After that, any of the 53 methods can be called.
+
+**Node.js example** (raw WebSocket, no dependencies beyond `ws`):
 
 ```js
 const WebSocket = require('ws');
 const ws = new WebSocket('ws://127.0.0.1:7777/');
 
 ws.on('open', () => {
+  // 1. authenticate
   ws.send(JSON.stringify({
     jsonrpc: '2.0', id: '1', method: 'auth',
-    params: { code: '481293', agentId: 'my-agent' }
+    params: { code: '481293', agentId: 'my-llm-agent' }
   }));
 });
 
+let nextId = 2;
 ws.on('message', (buf) => {
   const msg = JSON.parse(buf.toString());
   console.log(msg);
-  // After auth succeeds, send any method:
-  // ws.send(JSON.stringify({ jsonrpc:'2.0', id:'2', method:'shell.exec', params:{ command:'ls -la' } }));
+
+  // 2. once auth succeeds, call any method
+  if (msg.id === '1' && msg.result?.ok) {
+    // run a shell command
+    ws.send(JSON.stringify({ jsonrpc: '2.0', id: nextId++, method: 'shell.exec',
+      params: { command: 'ls -la' } }));
+
+    // read a file
+    ws.send(JSON.stringify({ jsonrpc: '2.0', id: nextId++, method: 'fs.read',
+      params: { path: 'README.md' } }));
+
+    // send a message to the user's TUI
+    ws.send(JSON.stringify({ jsonrpc: '2.0', id: nextId++, method: 'agent.message',
+      params: { text: 'Hi! I just read your README.', level: 'success' } }));
+  }
 });
 ```
 
-Run the included example:
+**Python example** (needs `pip install websocket-client`):
 
-```bash
-node examples/node-agent.js ws://127.0.0.1:7777/ 481293
+```python
+import json, websocket
+
+ws = websocket.create_connection('ws://127.0.0.1:7777/')
+
+# 1. authenticate
+ws.send(json.dumps({
+    'jsonrpc': '2.0', 'id': '1', 'method': 'auth',
+    'params': {'code': '481293', 'agentId': 'my-py-agent'}
+}))
+print(json.loads(ws.recv()))
+
+# 2. run a shell command
+ws.send(json.dumps({
+    'jsonrpc': '2.0', 'id': '2', 'method': 'shell.exec',
+    'params': {'command': 'whoami && pwd'}
+}))
+print(json.loads(ws.recv()))
 ```
 
-…or the Python one:
+### Step 4 — Try it with the bundled example clients
+
+The package ships with two ready-to-run interactive agents in `examples/`:
 
 ```bash
-pip install websocket-client
+# Node.js interactive REPL
+node examples/node-agent.js ws://127.0.0.1:7777/ 481293
+
+# Python interactive REPL (needs: pip install websocket-client)
 python examples/python-agent.py ws://127.0.0.1:7777/ 481293
 ```
+
+Once connected, you get a `agent>` prompt where you can type any method name + JSON params:
+
+```
+agent> sys.info
+agent> shell.exec {"command":"pwd"}
+agent> fs.read {"path":"package.json"}
+agent> agent.message {"text":"hello from your AI","level":"info"}
+agent> agent.ask {"prompt":"What folder should I look at?"}
+```
+
+### Quick reference: connecting from common AI frameworks
+
+| Framework | How to connect |
+|---|---|
+| **Raw Node.js** | `new WebSocket('ws://…')` + `ws.send(JSON.stringify({jsonrpc:'2.0',…}))` |
+| **Raw Python** | `pip install websocket-client` then `websocket.create_connection('ws://…')` |
+| **LangChain tool** | Wrap the JSON-RPC calls in a `@tool`-decorated function that opens the WS, sends the request, returns the response |
+| **AutoGen agent** | Add a custom function that calls `shell.exec` / `fs.read` over the WebSocket |
+| **MCP server bridge** | Implement an MCP server that proxies tool calls to the JSON-RPC endpoint |
+| **Browser JS** | `new WebSocket('wss://…')` (use `wss://` for tunneled connections; browsers block mixed content) |
+
+The protocol is intentionally simple (JSON-RPC 2.0, no exotic framing) so it works with any language that has a WebSocket client.
 
 ---
 
@@ -430,25 +622,6 @@ const server = await startServer({
 // server.serverId     -> unique server id
 await server.stop();           // graceful shutdown
 ```
-
----
-
-## Connecting AI agents on a different network
-
-By default the server listens on `127.0.0.1`, which means only agents on the same machine can connect. For agents on a different network, pick one:
-
-| Option | Command | When to use |
-|---|---|---|
-| **Same Wi-Fi** | `onlineagent start --lan` | Phone → laptop, two laptops on home Wi-Fi. |
-| **cloudflared** (free, no signup) | `cloudflared tunnel --url http://localhost:7777` | Remote agent, public URL, fast. |
-| **ngrok** | `ngrok http 7777` | Remote agent, you have an ngrok account. |
-| **bore.pub** | `bore local 7777 --to bore.pub` | Remote agent, simple, no signup. |
-
-When using a tunnel, give the AI agent the `wss://` (secure WebSocket) URL the tunnel prints, and the same pairing code.
-
-> **Warning:** with a tunnel, anyone who guesses your 6-digit code can run shell commands on your machine. Either:
-> - Use `--code` to set a long alphanumeric code, **or**
-> - Run with `--no-shell --no-write` so the agent can only *read* & *list* files.
 
 ---
 

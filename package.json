@@ -1,6 +1,6 @@
 {
   "name": "online-agent",
-  "version": "2.1.1",
+  "version": "2.2.1",
   "description": "Cross-platform Terminal CLI + TUI that hosts a local server so AI agents can connect via a pairing code and respond directly in your terminal. Works on Windows, Linux, macOS, and Android (Termux).",
   "main": "src/index.js",
   "bin": {

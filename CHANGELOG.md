@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.2.1 — 2026-06-25
+
+### Changed — README clarity on GitHub Packages
+- README top banner previously said "GitHub Packages is deprecated" (a leftover from v2.1.0 when we briefly switched to npm-only). This was wrong now that dual-publishing is the policy. The banner now explicitly states **both registries are fully supported, neither is deprecated**.
+- Install section's Option B (GitHub Packages) now has a clear warning that **GitHub Packages requires a PAT for all npm installs**, even for public packages — this is a hard GitHub limitation, not a bug in our setup. Users who want zero-auth install should use Option A (npm).
+- Clarified that only the OLD package name (`@thestrongestoftomorrow/onlineagent-connector` with a dash) is frozen at v2.0.0; the NEW name (`@thestrongestoftomorrow/online-agent`) is actively maintained and published in sync with npm on every release.
+
+### Note — GitHub Packages visibility (manual step required)
+- The GitHub Packages package `@thestrongestoftomorrow/online-agent` is currently `visibility: private` on GitHub's side (this is the default for user-owned packages).
+- GitHub does NOT expose an API to change package visibility for user-owned packages — it can only be done via the web UI at: https://github.com/users/TheStrongestOfTomorrow/packages/npm/online-agent/settings → "Change visibility" → Public.
+- **Important caveat**: even after making it "public" in the visibility sense, GitHub Packages still requires a `read:packages` PAT for `npm install`. There is no anonymous install path on GitHub Packages. This is a platform limitation, not something we can fix in code. Users who need zero-auth install should use the npm registry (Option A).
+
+---
+
+## 2.2.0 — 2026-06-24
+
+### Added — README "How the AI connects" section
+- New comprehensive section in README explaining the full agent-connection flow with an ASCII diagram.
+- Three scenarios spelled out with concrete commands and URLs:
+  - **Scenario A — Same machine**: AI runs as another local process, connects to `ws://127.0.0.1:7777/`
+  - **Scenario B — Same Wi-Fi (LAN)**: AI on another device, start with `--lan`, connect to `ws://192.168.x.x:7777/`
+  - **Scenario C — Remote / cloud AI**: AI in the cloud, use cloudflared / ngrok / bore tunnel, connect to `wss://…`
+- Step-by-step walkthrough: start server → choose scenario → authenticate → call methods.
+- Node.js + Python minimal agent examples (raw WebSocket, no framework needed).
+- Quick-reference table for connecting from common AI frameworks (LangChain, AutoGen, MCP, browser JS).
+- Removed the older redundant "Connecting AI agents on a different network" section.
+
+### Added — dual publishing (npm + GitHub Packages)
+- The package is now published to **both** registries on every release:
+  - **npm**: `online-agent` (unscoped, primary, no setup needed to install)
+  - **GitHub Packages**: `@thestrongestoftomorrow/online-agent` (scoped, requires PAT in `.npmrc` to install)
+- Both contain **exactly the same code** — only the package name differs (GitHub Packages requires scoped names).
+- New `scripts/publish-both.sh` script handles the temporary rename + dual publish locally.
+- GitHub Actions workflow updated to publish to both registries on `v*` tag push.
+- README install section rewritten with **Option A (npm)** and **Option B (GitHub Packages)** side by side, so users who can't use npm (e.g. due to 2FA requirements on trusted publishing) have a working fallback.
+- Top-of-README banner updated to reflect dual-registry availability.
+
+### Why dual publishing?
+npm's "trusted publisher" (OIDC) feature requires 2FA on the publishing account. Users or maintainers in environments where 2FA isn't usable (locked-down devices, specific browsers, accessibility constraints) can fall back to GitHub Packages, which only requires a Personal Access Token — no 2FA.
+
+---
+
 ## 2.1.1 — 2026-06-24
 
 ### Changed
